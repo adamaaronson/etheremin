@@ -4,7 +4,7 @@ import Etheremin from "./Etheremin";
 export default function App() {
   const [started, setStarted] = useState(false);
   return (
-    <div className="h-screen flex flex-col relative">
+    <div className="h-screen flex flex-col relative overflow-hidden">
       <header className="text-gray-100 font-mono absolute pointer-events-none select-none p-4">
         <h1 className="text-3xl font-bold m-0 p-0">etheremin</h1>
         <h2 className="text-1xl font-bold m-0 p-0">a window instrument</h2>

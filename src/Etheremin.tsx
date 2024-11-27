@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getNotesBetween } from "./Notes";
 
 const MIN_FREQ = 220;
 const MAX_FREQ = 880;
@@ -35,7 +36,8 @@ export default function Etheremin() {
 
   function getFrequency(y: number) {
     return (
-      2 ** ((MAX_FREQ / MIN_FREQ) * (1 - y / window.innerHeight)) * MIN_FREQ
+      2 ** (Math.log2(MAX_FREQ / MIN_FREQ) * (1 - y / window.innerHeight)) *
+      MIN_FREQ
     );
   }
 
@@ -90,7 +92,7 @@ export default function Etheremin() {
 
   return (
     <main
-      className="bg-gray-400 p-4 flex-1 cursor-pointer"
+      className="bg-gray-400 flex-1 cursor-pointer overflow-hidden"
       onMouseDown={(event) => attack(event)}
       onMouseUp={(event) => release(event)}
       onMouseMove={(event) => sustain(event)}
@@ -98,6 +100,18 @@ export default function Etheremin() {
       // onTouchStart={(event) => attack(event)}
       // onTouchEnd={(event) => release(event)}
       // onTouchMove={(event) => sustain(event)}
-    ></main>
+    >
+      {getNotesBetween(MIN_FREQ, MAX_FREQ, 0, window.innerHeight).map(
+        ({ noteName, y }) => (
+          <span
+            className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold text-2xl -translate-y-1/2"
+            style={{ top: `${window.innerHeight - y}px` }}
+          >
+            {noteName}
+            {noteName.length === 1 ? "\u00A0" : ""}
+          </span>
+        )
+      )}
+    </main>
   );
 }
