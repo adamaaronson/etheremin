@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getNotesBetween } from "./Notes";
+import Notes from "./Notes";
 
 const MIN_FREQ = 220;
 const MAX_FREQ = 880;
@@ -8,7 +8,12 @@ const MAX_VOL = 1;
 
 const AUDIO_DELAY = 0.1;
 
-export default function Etheremin() {
+export interface EthereminProps {
+  autotune: boolean;
+  flats: boolean;
+}
+
+export default function Etheremin({ autotune, flats }: EthereminProps) {
   const [audioContext, setAudioContext] = useState(() => new AudioContext());
   const [oscillator, setOscillator] = useState<OscillatorNode | null>(null);
   const [gain, setGain] = useState<GainNode | null>(null);
@@ -35,58 +40,73 @@ export default function Etheremin() {
   }
 
   function getFrequency(y: number) {
+    if (autotune) {
+      return (
+        2 **
+          (Math.round(
+            Math.log2(MAX_FREQ / MIN_FREQ) * (1 - y / window.innerHeight) * 12
+          ) /
+            12) *
+        MIN_FREQ
+      );
+    }
     return (
       2 ** (Math.log2(MAX_FREQ / MIN_FREQ) * (1 - y / window.innerHeight)) *
       MIN_FREQ
     );
   }
 
-  function attack(event: React.MouseEvent<HTMLElement>) {
-    if (!gain) {
-      return;
+  function setVolume(volume: number) {
+    if (gain) {
+      gain.gain.linearRampToValueAtTime(
+        getVolume(volume),
+        audioContext.currentTime + AUDIO_DELAY
+      );
     }
+  }
 
-    gain.gain.linearRampToValueAtTime(
-      getVolume(event.clientX),
-      audioContext.currentTime + AUDIO_DELAY
-    );
-
+  function setFrequency(frequency: number) {
     if (oscillator) {
       oscillator.frequency.setValueAtTime(
-        getFrequency(event.clientY),
+        getFrequency(frequency),
         audioContext.currentTime
       );
     }
+  }
 
+  function attack(event: React.MouseEvent<HTMLElement>) {
+    setVolume(event.clientX);
+    setFrequency(event.clientY);
     setPlaying(true);
   }
 
   function release(event: React.MouseEvent<HTMLElement>) {
-    if (gain) {
-      gain.gain.linearRampToValueAtTime(
-        MIN_VOL,
-        audioContext.currentTime + AUDIO_DELAY
-      );
-    }
-
+    setVolume(MIN_VOL);
     setPlaying(false);
   }
 
   function sustain(event: React.MouseEvent<HTMLElement>) {
-    if (!playing) {
-      return;
+    if (playing) {
+      setVolume(event.clientX);
+      setFrequency(event.clientY);
     }
-    if (gain) {
-      gain.gain.linearRampToValueAtTime(
-        getVolume(event.clientX),
-        audioContext.currentTime + AUDIO_DELAY
-      );
-    }
-    if (oscillator) {
-      oscillator.frequency.setValueAtTime(
-        getFrequency(event.clientY),
-        audioContext.currentTime
-      );
+  }
+
+  function attackTouch(event: React.TouchEvent<HTMLElement>) {
+    setVolume(event.touches[0].clientX);
+    setFrequency(event.touches[0].clientY);
+    setPlaying(true);
+  }
+
+  function releaseTouch(event: React.TouchEvent<HTMLElement>) {
+    setVolume(MIN_VOL);
+    setPlaying(false);
+  }
+
+  function sustainTouch(event: React.TouchEvent<HTMLElement>) {
+    if (playing) {
+      setVolume(event.touches[0].clientX);
+      setFrequency(event.touches[0].clientY);
     }
   }
 
@@ -97,21 +117,11 @@ export default function Etheremin() {
       onMouseUp={(event) => release(event)}
       onMouseMove={(event) => sustain(event)}
       onMouseLeave={(event) => release(event)}
-      // onTouchStart={(event) => attack(event)}
-      // onTouchEnd={(event) => release(event)}
-      // onTouchMove={(event) => sustain(event)}
+      onTouchStart={(event) => attackTouch(event)}
+      onTouchEnd={(event) => releaseTouch(event)}
+      onTouchMove={(event) => sustainTouch(event)}
     >
-      {getNotesBetween(MIN_FREQ, MAX_FREQ, 0, window.innerHeight).map(
-        ({ noteName, y }) => (
-          <span
-            className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold text-2xl -translate-y-1/2"
-            style={{ top: `${window.innerHeight - y}px` }}
-          >
-            {noteName}
-            {noteName.length === 1 ? "\u00A0" : ""}
-          </span>
-        )
-      )}
+      <Notes minFrequency={MIN_FREQ} maxFrequency={MAX_FREQ} flats={flats} />
     </main>
   );
 }
