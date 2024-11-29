@@ -85,7 +85,7 @@ export default function Notes({
   return getNotesBetween(minFrequency, maxFrequency, flats).map(
     ({ noteName, y }) => (
       <span
-        className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold -translate-y-1/2 select-none border-t border-t-[#bbbbbb] leading-[1.2] z-0"
+        className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold -translate-y-1/2 select-none border-t border-t-[#bbbbbb] leading-[1.2] z-[5]"
         style={{
           top: `${100 - 100 * y}dvh`,
           fontSize: `${80 * dy}dvh`,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Notes from "./Notes";
 
 const MIN_FREQ = 220;
@@ -7,7 +7,7 @@ const MIN_VOL = 0;
 const MAX_VOL = 1;
 
 const AUDIO_DELAY = 0.025;
-const MOUSE_ID = 47;
+let MOUSE_ID = 47;
 
 const audioContext = new AudioContext();
 
@@ -20,10 +20,13 @@ interface Wave {
   oscillator: OscillatorNode;
   gain: GainNode;
   playing: boolean;
+  x: number;
+  y: number;
 }
 
 export default function Etheremin({ autotune, flats }: EthereminProps) {
   const [waves, setWaves] = useState<Map<number, Wave>>(new Map());
+  const [_timestamp, setTimestamp] = useState(0);
 
   function makeWave(identifier: number) {
     const oscillator = audioContext.createOscillator();
@@ -37,6 +40,8 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
       oscillator: oscillator,
       gain: gain,
       playing: false,
+      x: 0,
+      y: 0,
     };
 
     setWaves(new Map(waves.set(identifier, wave)));
@@ -45,6 +50,9 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
 
   function deleteWave(identifier: number) {
     const wave = waves.get(identifier);
+    if (wave?.playing) {
+      return;
+    }
     waves.delete(identifier);
     wave?.gain.disconnect();
     wave?.oscillator.disconnect();
@@ -93,45 +101,57 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
     wave.playing = playing;
   }
 
-  function attackMouse(event: React.MouseEvent<HTMLElement>) {
-    setVolume(MOUSE_ID, event.clientX);
-    setFrequency(MOUSE_ID, event.clientY);
-    setPlaying(MOUSE_ID, true);
+  function setCoordinates(identifier: number, x: number, y: number) {
+    const wave = waves.get(identifier) || makeWave(identifier);
+    wave.x = x;
+    wave.y = y;
   }
 
-  function releaseMouse(event: React.MouseEvent<HTMLElement>) {
-    setVolume(MOUSE_ID, MIN_VOL);
-    setPlaying(MOUSE_ID, false);
+  function attack(identifier: number, x: number, y: number) {
+    setVolume(identifier, x);
+    setFrequency(identifier, y);
+    setPlaying(identifier, true);
+    setCoordinates(identifier, x, y);
+    setTimestamp(Date.now());
+  }
+
+  function sustain(identifier: number, x: number, y: number) {
+    if (waves.get(identifier)?.playing) {
+      setVolume(identifier, x);
+      setFrequency(identifier, y);
+      setCoordinates(identifier, x, y);
+      setTimestamp(Date.now());
+    }
+  }
+
+  function release(identifier: number) {
+    setVolume(identifier, MIN_VOL);
+    setPlaying(identifier, false);
+    setTimestamp(Date.now());
+    setTimeout(() => {
+      deleteWave(identifier);
+      setTimestamp(Date.now());
+    }, AUDIO_DELAY * 5000);
+  }
+
+  function attackMouse(event: React.MouseEvent<HTMLElement>) {
+    attack(MOUSE_ID, event.clientX, event.clientY);
   }
 
   function sustainMouse(event: React.MouseEvent<HTMLElement>) {
-    if (waves.get(MOUSE_ID)?.playing) {
-      setVolume(MOUSE_ID, event.clientX);
-      setFrequency(MOUSE_ID, event.clientY);
-    }
+    sustain(MOUSE_ID, event.clientX, event.clientY);
+  }
+
+  function releaseMouse(_event: React.MouseEvent<HTMLElement>) {
+    release(MOUSE_ID);
   }
 
   function attackTouch(event: React.TouchEvent<HTMLElement>) {
     event.preventDefault();
-    const touches = event.touches;
-    for (let i = 0; i < touches.length; i++) {
-      const identifier = touches[i].identifier;
-      setVolume(identifier, touches[i].clientX);
-      setFrequency(identifier, touches[i].clientY);
-      setPlaying(identifier, true);
-    }
-  }
-
-  function releaseTouch(event: React.TouchEvent<HTMLElement>) {
-    event.preventDefault();
     const touches = event.changedTouches;
     for (let i = 0; i < touches.length; i++) {
-      const identifier = touches[i].identifier;
-      setVolume(identifier, MIN_VOL);
-      setPlaying(identifier, false);
-      setTimeout(() => {
-        deleteWave(identifier);
-      }, AUDIO_DELAY * 10000);
+      const touch = touches[i];
+      attack(touch.identifier, touch.clientX, touch.clientY);
     }
   }
 
@@ -139,9 +159,17 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
     event.preventDefault();
     const touches = event.changedTouches;
     for (let i = 0; i < touches.length; i++) {
-      const identifier = touches[i].identifier;
-      setVolume(identifier, touches[i].clientX);
-      setFrequency(identifier, touches[i].clientY);
+      const touch = touches[i];
+      sustain(touch.identifier, touch.clientX, touch.clientY);
+    }
+  }
+
+  function releaseTouch(event: React.TouchEvent<HTMLElement>) {
+    event.preventDefault();
+    const touches = event.changedTouches;
+    for (let i = 0; i < touches.length; i++) {
+      const touch = touches[i];
+      release(touch.identifier);
     }
   }
 
@@ -149,20 +177,25 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
     <main
       className="bg-gray-400 flex-1 cursor-pointer overflow-hidden"
       onMouseDown={(event) => attackMouse(event)}
+      onMouseMove={(event) => sustainMouse(event)}
       onMouseUp={(event) => releaseMouse(event)}
       onMouseLeave={(event) => releaseMouse(event)}
-      onMouseMove={(event) => sustainMouse(event)}
       onTouchStart={(event) => attackTouch(event)}
-      onTouchEnd={(event) => releaseTouch(event)}
       onTouchMove={(event) => sustainTouch(event)}
+      onTouchEnd={(event) => releaseTouch(event)}
     >
-      {/* {Array.from(waves.entries()).map(([identifier, wave]) => (
-        <p>
-          {identifier}: ({wave.oscillator.frequency.value},{" "}
-          {wave.gain.gain.value})
-        </p>
-      ))} */}
       <Notes minFrequency={MIN_FREQ} maxFrequency={MAX_FREQ} flats={flats} />
+      {Array.from(waves.entries()).map(([_identifier, wave]) => (
+        <div
+          className="absolute bg-gray-500 rounded-full -translate-x-1/2 -translate-y-1/2 z-0"
+          style={{
+            left: wave.x,
+            top: wave.y,
+            width: `${(wave.x / window.innerWidth) * 15}dvh`,
+            height: `${(wave.x / window.innerWidth) * 15}dvh`,
+          }}
+        ></div>
+      ))}
     </main>
   );
 }

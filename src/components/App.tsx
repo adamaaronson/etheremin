@@ -3,7 +3,7 @@ import Etheremin from "./Etheremin";
 
 export default function App() {
   const [started, setStarted] = useState(false);
-  const [autotune, setAutotune] = useState(false);
+  const [autotune, setAutotune] = useState(true);
   const [flats, setFlats] = useState(true);
 
   return (
