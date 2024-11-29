@@ -87,8 +87,8 @@ export default function Notes({
       <span
         className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold -translate-y-1/2 select-none border-t border-t-[#bbbbbb] leading-[1.2] z-0"
         style={{
-          top: `${100 - 100 * y}vh`,
-          fontSize: `${80 * dy}vh`,
+          top: `${100 - 100 * y}dvh`,
+          fontSize: `${80 * dy}dvh`,
         }}
       >
         {noteName}

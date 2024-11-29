@@ -6,34 +6,49 @@ const MAX_FREQ = 880;
 const MIN_VOL = 0;
 const MAX_VOL = 1;
 
-const AUDIO_DELAY = 0.1;
+const AUDIO_DELAY = 0.025;
+const MOUSE_ID = 47;
+
+const audioContext = new AudioContext();
 
 export interface EthereminProps {
   autotune: boolean;
   flats: boolean;
 }
 
+interface Wave {
+  oscillator: OscillatorNode;
+  gain: GainNode;
+  playing: boolean;
+}
+
 export default function Etheremin({ autotune, flats }: EthereminProps) {
-  const [audioContext, setAudioContext] = useState(() => new AudioContext());
-  const [oscillator, setOscillator] = useState<OscillatorNode | null>(null);
-  const [gain, setGain] = useState<GainNode | null>(null);
-  const [playing, setPlaying] = useState(false);
+  const [waves, setWaves] = useState<Map<number, Wave>>(new Map());
 
-  useEffect(() => {
-    // https://marcgg.com/blog/2016/11/01/javascript-audio/
-    const context = new AudioContext();
-    const oscillator = context.createOscillator();
-    const gainNode = context.createGain();
+  function makeWave(identifier: number) {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    gain.gain.setValueAtTime(0, audioContext.currentTime);
+    oscillator.start(audioContext.currentTime);
 
-    oscillator.connect(gainNode);
-    gainNode.connect(context.destination);
-    gainNode.gain.setValueAtTime(0, context.currentTime);
-    oscillator.start(context.currentTime);
+    const wave: Wave = {
+      oscillator: oscillator,
+      gain: gain,
+      playing: false,
+    };
 
-    setAudioContext(audioContext);
-    setOscillator(oscillator);
-    setGain(gainNode);
-  }, []);
+    setWaves(new Map(waves.set(identifier, wave)));
+    return wave;
+  }
+
+  function deleteWave(identifier: number) {
+    const wave = waves.get(identifier);
+    waves.delete(identifier);
+    wave?.gain.disconnect();
+    wave?.oscillator.disconnect();
+  }
 
   function getVolume(x: number) {
     return (MAX_VOL - MIN_VOL) * (x / window.innerWidth) + MIN_VOL;
@@ -56,71 +71,97 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
     );
   }
 
-  function setVolume(volume: number) {
-    if (gain) {
-      gain.gain.linearRampToValueAtTime(
-        getVolume(volume),
-        audioContext.currentTime + AUDIO_DELAY
-      );
-    }
+  function setVolume(identifier: number, x: number) {
+    const wave = waves.get(identifier) || makeWave(identifier);
+    wave.gain.gain.setTargetAtTime(
+      getVolume(x),
+      audioContext.currentTime,
+      AUDIO_DELAY
+    );
   }
 
-  function setFrequency(frequency: number) {
-    if (oscillator) {
-      oscillator.frequency.setValueAtTime(
-        getFrequency(frequency),
-        audioContext.currentTime
-      );
-    }
+  function setFrequency(identifier: number, y: number) {
+    const wave = waves.get(identifier) || makeWave(identifier);
+    wave.oscillator.frequency.setValueAtTime(
+      getFrequency(y),
+      audioContext.currentTime
+    );
   }
 
-  function attack(event: React.MouseEvent<HTMLElement>) {
-    setVolume(event.clientX);
-    setFrequency(event.clientY);
-    setPlaying(true);
+  function setPlaying(identifier: number, playing: boolean) {
+    const wave = waves.get(identifier) || makeWave(identifier);
+    wave.playing = playing;
   }
 
-  function release(event: React.MouseEvent<HTMLElement>) {
-    setVolume(MIN_VOL);
-    setPlaying(false);
+  function attackMouse(event: React.MouseEvent<HTMLElement>) {
+    setVolume(MOUSE_ID, event.clientX);
+    setFrequency(MOUSE_ID, event.clientY);
+    setPlaying(MOUSE_ID, true);
   }
 
-  function sustain(event: React.MouseEvent<HTMLElement>) {
-    if (playing) {
-      setVolume(event.clientX);
-      setFrequency(event.clientY);
+  function releaseMouse(event: React.MouseEvent<HTMLElement>) {
+    setVolume(MOUSE_ID, MIN_VOL);
+    setPlaying(MOUSE_ID, false);
+  }
+
+  function sustainMouse(event: React.MouseEvent<HTMLElement>) {
+    if (waves.get(MOUSE_ID)?.playing) {
+      setVolume(MOUSE_ID, event.clientX);
+      setFrequency(MOUSE_ID, event.clientY);
     }
   }
 
   function attackTouch(event: React.TouchEvent<HTMLElement>) {
-    setVolume(event.touches[0].clientX);
-    setFrequency(event.touches[0].clientY);
-    setPlaying(true);
+    event.preventDefault();
+    const touches = event.touches;
+    for (let i = 0; i < touches.length; i++) {
+      const identifier = touches[i].identifier;
+      setVolume(identifier, touches[i].clientX);
+      setFrequency(identifier, touches[i].clientY);
+      setPlaying(identifier, true);
+    }
   }
 
   function releaseTouch(event: React.TouchEvent<HTMLElement>) {
-    setVolume(MIN_VOL);
-    setPlaying(false);
+    event.preventDefault();
+    const touches = event.changedTouches;
+    for (let i = 0; i < touches.length; i++) {
+      const identifier = touches[i].identifier;
+      setVolume(identifier, MIN_VOL);
+      setPlaying(identifier, false);
+      setTimeout(() => {
+        deleteWave(identifier);
+      }, AUDIO_DELAY * 10000);
+    }
   }
 
   function sustainTouch(event: React.TouchEvent<HTMLElement>) {
-    if (playing) {
-      setVolume(event.touches[0].clientX);
-      setFrequency(event.touches[0].clientY);
+    event.preventDefault();
+    const touches = event.changedTouches;
+    for (let i = 0; i < touches.length; i++) {
+      const identifier = touches[i].identifier;
+      setVolume(identifier, touches[i].clientX);
+      setFrequency(identifier, touches[i].clientY);
     }
   }
 
   return (
     <main
       className="bg-gray-400 flex-1 cursor-pointer overflow-hidden"
-      onMouseDown={(event) => attack(event)}
-      onMouseUp={(event) => release(event)}
-      onMouseMove={(event) => sustain(event)}
-      onMouseLeave={(event) => release(event)}
+      onMouseDown={(event) => attackMouse(event)}
+      onMouseUp={(event) => releaseMouse(event)}
+      onMouseLeave={(event) => releaseMouse(event)}
+      onMouseMove={(event) => sustainMouse(event)}
       onTouchStart={(event) => attackTouch(event)}
       onTouchEnd={(event) => releaseTouch(event)}
       onTouchMove={(event) => sustainTouch(event)}
     >
+      {/* {Array.from(waves.entries()).map(([identifier, wave]) => (
+        <p>
+          {identifier}: ({wave.oscillator.frequency.value},{" "}
+          {wave.gain.gain.value})
+        </p>
+      ))} */}
       <Notes minFrequency={MIN_FREQ} maxFrequency={MAX_FREQ} flats={flats} />
     </main>
   );
