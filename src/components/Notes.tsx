@@ -83,17 +83,22 @@ export default function Notes({
   const notes = getNotesBetween(minFrequency, maxFrequency, flats);
   const dy = notes[1].y - notes[0].y;
   return getNotesBetween(minFrequency, maxFrequency, flats).map(
-    ({ noteName, y }) => (
-      <span
-        className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold -translate-y-1/2 select-none border-t border-t-[#bbbbbb] leading-[1.2] z-[5]"
+    ({ noteName, y }, index) => (
+      <div
+        className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold -translate-y-1/2 select-none
+        border-t border-t-[#bbbbbb] z-[5] flex flex-row justify-end items-center"
         style={{
+          height: `${100 * dy}dvh`,
           top: `${100 - 100 * y}dvh`,
           fontSize: `${80 * dy}dvh`,
         }}
+        key={index}
       >
-        {noteName}
-        {noteName.length === 1 ? "\u00A0" : ""}
-      </span>
+        <span>
+          {noteName}
+          {noteName.length === 1 ? "\u00A0" : ""}
+        </span>
+      </div>
     )
   );
 }

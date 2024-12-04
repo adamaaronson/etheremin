@@ -50,12 +50,15 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
 
   function deleteWave(identifier: number) {
     const wave = waves.get(identifier);
-    if (wave?.playing) {
+    if (!wave || wave.playing) {
       return;
     }
-    waves.delete(identifier);
     wave?.gain.disconnect();
     wave?.oscillator.disconnect();
+    setWaves((waves) => {
+      waves.delete(identifier);
+      return waves;
+    });
   }
 
   function getVolume(x: number) {
@@ -144,6 +147,7 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
 
   function releaseMouse(_event: React.MouseEvent<HTMLElement>) {
     release(MOUSE_ID);
+    MOUSE_ID += 1;
   }
 
   function attackTouch(event: React.TouchEvent<HTMLElement>) {
@@ -185,9 +189,10 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
       onTouchEnd={(event) => releaseTouch(event)}
     >
       <Notes minFrequency={MIN_FREQ} maxFrequency={MAX_FREQ} flats={flats} />
-      {Array.from(waves.entries()).map(([_identifier, wave]) => (
+      {Array.from(waves.entries()).map(([identifier, wave]) => (
         <div
           className="absolute bg-gray-500 rounded-full -translate-x-1/2 -translate-y-1/2 z-0"
+          key={identifier}
           style={{
             left: wave.x,
             top: wave.y,
