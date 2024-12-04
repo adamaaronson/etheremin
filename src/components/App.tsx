@@ -9,7 +9,9 @@ export default function App() {
   return (
     <div className="h-[100dvh] flex flex-col relative overflow-hidden">
       <header className="text-gray-100 font-mono absolute pointer-events-none select-none p-4 z-10">
-        <h1 className="text-3xl font-bold m-0 p-0">etheremin</h1>
+        <h1 className="text-5xl font-bold m-0 p-0 font-['Zen_Dots']">
+          etheremin
+        </h1>
         <h2 className="text-1xl font-bold m-0 p-0">a window instrument</h2>
         <h2 className="text-1xl font-bold m-0 p-0">by adam aaronson</h2>
         <h2 className="text-1xl font-bold m-0 p-0">for guy dupont</h2>

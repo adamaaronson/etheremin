@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Notes from "./Notes";
+import Circles from "./Circles";
 
 const MIN_FREQ = 220;
 const MAX_FREQ = 880;
@@ -16,7 +17,7 @@ export interface EthereminProps {
   flats: boolean;
 }
 
-interface Wave {
+export interface Wave {
   oscillator: OscillatorNode;
   gain: GainNode;
   playing: boolean;
@@ -189,18 +190,7 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
       onTouchEnd={(event) => releaseTouch(event)}
     >
       <Notes minFrequency={MIN_FREQ} maxFrequency={MAX_FREQ} flats={flats} />
-      {Array.from(waves.entries()).map(([identifier, wave]) => (
-        <div
-          className="absolute bg-gray-500 rounded-full -translate-x-1/2 -translate-y-1/2 z-0"
-          key={identifier}
-          style={{
-            left: wave.x,
-            top: wave.y,
-            width: `${(wave.x / window.innerWidth) * 15}dvh`,
-            height: `${(wave.x / window.innerWidth) * 15}dvh`,
-          }}
-        ></div>
-      ))}
+      <Circles waves={waves} />
     </main>
   );
 }
