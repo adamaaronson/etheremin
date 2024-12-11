@@ -2,7 +2,16 @@
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        retro: ["Zen Dots", "monospace"],
+      },
+      colors: {
+        gray: {
+          350: "#acb3bf",
+        },
+      },
+    },
   },
   plugins: [],
 };

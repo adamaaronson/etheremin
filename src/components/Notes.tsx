@@ -86,7 +86,7 @@ export default function Notes({
     ({ noteName, y }, index) => (
       <div
         className="text-gray-100 absolute w-screen right-100 text-right pr-4 font-mono font-bold -translate-y-1/2 select-none
-        border-t border-t-[#bbbbbb] z-[5] flex flex-row justify-end items-center"
+        border-t border-t-gray-350 z-10 flex flex-row justify-end items-center"
         style={{
           height: `${100 * dy}dvh`,
           top: `${100 - 100 * y}dvh`,
