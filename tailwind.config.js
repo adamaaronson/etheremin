@@ -2,6 +2,9 @@
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
+    fontFamily: {
+      mono: ["Roboto Mono", "monospace"],
+    },
     extend: {
       fontFamily: {
         retro: ["Zen Dots", "monospace"],
