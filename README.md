@@ -1,3 +1,3 @@
 # etheremin
 
-A window instrument
+a new musical instrument
