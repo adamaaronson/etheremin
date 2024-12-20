@@ -1,6 +1,9 @@
 import { useState } from "react";
 import Notes from "./Notes";
 import Circles from "./Circles";
+import Debug from "./Debug";
+
+const DEBUG = false;
 
 const MIN_FREQ = 220;
 const MAX_FREQ = 880;
@@ -18,6 +21,7 @@ export interface EthereminProps {
 }
 
 export interface Wave {
+  identifier: number;
   oscillator: OscillatorNode;
   gain: GainNode;
   playing: boolean;
@@ -26,40 +30,20 @@ export interface Wave {
 }
 
 export default function Etheremin({ autotune, flats }: EthereminProps) {
-  const [waves, setWaves] = useState<Map<number, Wave>>(new Map());
-  const [_timestamp, setTimestamp] = useState(0);
+  const [waves, setWaves] = useState<Wave[]>([]);
 
-  function makeWave(identifier: number) {
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    gain.gain.setValueAtTime(0, audioContext.currentTime);
-    oscillator.start(audioContext.currentTime);
-
-    const wave: Wave = {
-      oscillator: oscillator,
-      gain: gain,
-      playing: false,
-      x: 0,
-      y: 0,
-    };
-
-    setWaves(new Map(waves.set(identifier, wave)));
-    return wave;
+  function getWave(identifier: number) {
+    return waves.find((wave) => wave.identifier === identifier);
   }
 
   function deleteWave(identifier: number) {
-    const wave = waves.get(identifier);
-    if (!wave || wave.playing) {
-      return;
-    }
+    const wave = getWave(identifier);
+    // if (!wave || wave.playing) {
+    //   return;
+    // }
     wave?.gain.disconnect();
     wave?.oscillator.disconnect();
-    setWaves((waves) => {
-      waves.delete(identifier);
-      return waves;
-    });
+    setWaves((waves) => waves.filter((wave) => wave.identifier !== identifier));
   }
 
   function getVolume(x: number) {
@@ -83,58 +67,78 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
     );
   }
 
-  function setVolume(identifier: number, x: number) {
-    const wave = waves.get(identifier) || makeWave(identifier);
-    wave.gain.gain.setTargetAtTime(
+  function setVolume(gain: GainNode, x: number) {
+    gain.gain.setTargetAtTime(
       getVolume(x),
       audioContext.currentTime,
       AUDIO_DELAY
     );
+    return gain;
   }
 
-  function setFrequency(identifier: number, y: number) {
-    const wave = waves.get(identifier) || makeWave(identifier);
-    wave.oscillator.frequency.setValueAtTime(
+  function setFrequency(oscillator: OscillatorNode, y: number) {
+    oscillator.frequency.setValueAtTime(
       getFrequency(y),
       audioContext.currentTime
     );
-  }
-
-  function setPlaying(identifier: number, playing: boolean) {
-    const wave = waves.get(identifier) || makeWave(identifier);
-    wave.playing = playing;
-  }
-
-  function setCoordinates(identifier: number, x: number, y: number) {
-    const wave = waves.get(identifier) || makeWave(identifier);
-    wave.x = x;
-    wave.y = y;
+    return oscillator;
   }
 
   function attack(identifier: number, x: number, y: number) {
-    setVolume(identifier, x);
-    setFrequency(identifier, y);
-    setPlaying(identifier, true);
-    setCoordinates(identifier, x, y);
-    setTimestamp(Date.now());
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    gain.gain.setValueAtTime(0, audioContext.currentTime);
+    oscillator.start(audioContext.currentTime);
+
+    const wave: Wave = {
+      identifier,
+      oscillator: setFrequency(oscillator, y),
+      gain: setVolume(gain, x),
+      playing: true,
+      x: x,
+      y: y,
+    };
+
+    setWaves((oldWaves) => [...oldWaves, wave]);
   }
 
   function sustain(identifier: number, x: number, y: number) {
-    if (waves.get(identifier)?.playing) {
-      setVolume(identifier, x);
-      setFrequency(identifier, y);
-      setCoordinates(identifier, x, y);
-      setTimestamp(Date.now());
-    }
+    setWaves((waves) =>
+      waves.map((wave) =>
+        wave.identifier === identifier
+          ? {
+              identifier: wave.identifier,
+              oscillator: setFrequency(wave.oscillator, y),
+              gain: setVolume(wave.gain, x),
+              playing: wave.playing,
+              x: x,
+              y: y,
+            }
+          : wave
+      )
+    );
   }
 
   function release(identifier: number) {
-    setVolume(identifier, MIN_VOL);
-    setPlaying(identifier, false);
-    setTimestamp(Date.now());
+    setWaves((waves) =>
+      waves.map((wave) =>
+        wave.identifier === identifier
+          ? {
+              identifier: wave.identifier,
+              oscillator: wave.oscillator,
+              gain: setVolume(wave.gain, MIN_VOL),
+              playing: false,
+              x: wave.x,
+              y: wave.y,
+            }
+          : wave
+      )
+    );
+
     setTimeout(() => {
       deleteWave(identifier);
-      setTimestamp(Date.now());
     }, AUDIO_DELAY * 5000);
   }
 
@@ -189,6 +193,7 @@ export default function Etheremin({ autotune, flats }: EthereminProps) {
       onTouchMove={(event) => sustainTouch(event)}
       onTouchEnd={(event) => releaseTouch(event)}
     >
+      {DEBUG && <Debug waves={waves} />}
       <Notes minFrequency={MIN_FREQ} maxFrequency={MAX_FREQ} flats={flats} />
       <Circles waves={waves} />
     </main>
